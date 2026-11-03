@@ -1,0 +1,4 @@
+# 部署不需要的源文件与构建脚本（保留在本地即可）
+data/*.txt
+data/generate.js
+data/generate-letter.js
