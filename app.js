@@ -19,7 +19,7 @@ const searchInput = $('searchInput');
 const searchClearEl = $('searchClear');
 const stageHeadEl = $('stageHead');
 const transcriptEl = $('transcript');
-const sentinelEl = $('loadSentinel');
+const pagerEl = $('pager');
 const toastsEl = $('toasts');
 const playerEl = $('player');
 const playerTitleEl = $('playerTitle');
@@ -95,13 +95,13 @@ function decorateText(text) {
 
 /* ---------- 数据 ---------- */
 const ZINKI_COLORS = {
-  'KP': '#e6e8ec',
-  '这里有一只牛奶猫': '#c9ced4',
-  '墨菲·马洛里': '#b0593c',
-  'Riptide-37': '#38a3ff',
-  'ob一言不发': '#8a9199',
-  '洛佩兹·斯宾塞': '#9fd0f8',
-  '索菲亚·伊万诺夫': '#ff3b30'
+  'KP': '#ffffff',
+  '这里有一只牛奶猫': '#aaaaaa',
+  '墨菲·马洛里': '#d97736',
+  'Riptide-37': '#00cccc',
+  'ob一言不发': '#aaaaaa',
+  '洛佩兹·斯宾塞': '#4a90e2',
+  '索菲亚·伊万诺夫': '#ff2a2a'
 };
 const LETTER_COLORS = {
   'KP': '#efe8d8',
@@ -112,6 +112,24 @@ const LETTER_COLORS = {
   '瑞安·格雷夫斯': '#8a4a42',
   '菲利克斯·海德': '#4a7a9a',
   '神崎勘汰': '#9a8a7a'
+};
+const MOUNTAIN_COLORS = {
+  'KP': '#6f6269',
+  '骰子': '#6f6269',
+  '神崎勘汰': '#b0895c',
+  '陈勇刚': '#e6d7b5',
+  '林楚味': '#8a8a6a',
+  '雪野梢': '#6a84a0',
+  '黑部川': '#7a7a58',
+  '宋柊': '#8a6d86'
+};
+const HOTEL_COLORS = {
+  'KP': '#4a4a4a',
+  '骰子': '#4a4a4a',
+  '东云晴弥': '#1a2a3a',
+  '古木杏': '#1a3a2c',
+  '墓井贵理子': '#5e1414',
+  '东条飞鸟': '#5c4a2a'
 };
 // ZINKI 各个人线对应的「地点颜色」（共同线/全部为红色，由 CSS 回退到 accent）
 const LINE_LOCATION_COLOR = {
@@ -134,12 +152,15 @@ const state = {
   view: 'all',
   query: '',
   hidden: {},   // { name: 1 }
-  showOoc: true
+  showOoc: true,
+  page: 1
 };
 
 const CATEGORIES = [
   { id: 'zinki', title: 'ZINKI', theme: 'cyber', colors: ZINKI_COLORS, data: window.__ZINKI_DATA__ || { title: 'ZINKI', lines: [], speakers: [] } },
-  { id: 'letter', title: '请勿点击', theme: 'letter', colors: LETTER_COLORS, data: window.__LETTER_DATA__ || { title: '请勿点击', lines: [], speakers: [] } }
+  { id: 'letter', title: '请勿点击', theme: 'letter', colors: LETTER_COLORS, data: window.__LETTER_DATA__ || { title: '请勿点击', lines: [], speakers: [] } },
+  { id: 'mountain', title: '狂气山脉', theme: 'mountain', colors: MOUNTAIN_COLORS, bg: '#E5DDD5', top: '#8a6a48', data: window.__MOUNTAIN_DATA__ || { title: '狂气山脉', lines: [], speakers: [] } },
+  { id: 'hotel', title: '旅馆的捕食者', theme: 'hotel', colors: HOTEL_COLORS, data: window.__HOTEL_DATA__ || { title: '旅馆的捕食者', lines: [], speakers: [], bgm: [] } }
 ];
 function activeCat() { return CATEGORIES.find((c) => c.id === state.category) || CATEGORIES[0]; }
 let DATA = activeCat().data;
@@ -167,6 +188,7 @@ function buildSpeakerMap() {
 
 /* ---------- 分类 ---------- */
 function classify(m, role) {
+  if (m.bgm) return 'bgm';
   const t = (m.c || '').trim();
   if (/^《/.test(t) || /准备——action！/.test(t)) return 'system'; // 《...》章节 / action 标记
   if (role === 'KP' && /^【[\s\S]*】$/.test(t)) return 'important'; // KP 重要信息
@@ -261,6 +283,7 @@ function setCategory(id) {
   state.category = id;
   state.view = 'all';
   DATA = activeCat().data;
+  document.title = activeCat().title + '-ulogs';
   applyTheme();
   buildSpeakerMap();
   preprocess();
@@ -270,7 +293,22 @@ function setCategory(id) {
   window.scrollTo({ top: 0 });
 }
 function applyTheme() {
-  document.body.classList.toggle('theme-letter', activeCat().theme === 'letter');
+  const theme = activeCat().theme;
+  document.body.classList.toggle('theme-letter', theme === 'letter');
+  document.body.classList.toggle('theme-mountain', theme === 'mountain');
+  document.body.classList.toggle('theme-hotel', theme === 'hotel');
+  applyLineBg();
+}
+function applyLineBg() {
+  const cat = activeCat();
+  if (cat.theme === 'mountain') {
+    const L = DATA.lines.find((l) => l.id === state.view);
+    document.body.style.setProperty('--bg', L ? L.bg : (cat.bg || '#E5DDD5'));
+    document.body.style.setProperty('--mountain-top', L ? (L.top || '#8a6a48') : (cat.top || '#8a6a48'));
+  } else {
+    document.body.style.removeProperty('--bg');
+    document.body.style.removeProperty('--mountain-top');
+  }
 }
 
 function updateLineBtn() {
@@ -311,6 +349,7 @@ function buildLineRow(line, active) {
 function setView(v) {
   if (state.view === v) return;
   state.view = v;
+  applyLineBg();
   saveState();
   renderAll();
   window.scrollTo({ top: 0 });
@@ -407,6 +446,12 @@ function buildPlaylist() {
   playlist = [];
   for (const L of DATA.lines) {
     for (const m of L.messages) {
+      if (m.bgm && m.file) {
+        if (!seen[m.file]) {
+          seen[m.file] = 1;
+          playlist.push({ file: m.file, title: m.bgm, desc: 'BGM' });
+        }
+      }
       if (!m.media) continue;
       for (const md of m.media) {
         if (!md.file || seen[md.file]) continue;
@@ -507,10 +552,16 @@ audioEl.addEventListener('error', () => {
 
 function buildGroup(m) {
   const sp = speakerMap[m.n] || { name: m.n, role: 'PC', color: '#8a9199' };
+  const color = m.color || sp.color;
+  const isRight = sp.role === 'KP' || sp.name === '骰子';
+  const ink = readableText(color);
+  const WHITE_INK = { 'KP': 1, '骰子': 1, '雪野梢': 1, '宋柊': 1, '黑部川': 1 };
+  const bubbleInk = (activeCat().id === 'mountain' && WHITE_INK[sp.name]) ? '#ffffff' : ink;
   const wrap = document.createElement('div');
-  wrap.className = 'group';
-  wrap.style.setProperty('--sp', sp.color);
-  wrap.style.setProperty('--sp-ink', readableText(sp.color));
+  wrap.className = 'group' + (isRight ? ' group-right' : ' group-left');
+  wrap.style.setProperty('--sp', color);
+  wrap.style.setProperty('--sp-ink', ink);
+  wrap.style.setProperty('--sp-bubble-ink', bubbleInk);
 
   const head = document.createElement('div');
   head.className = 'group-head';
@@ -542,7 +593,7 @@ function buildGroup(m) {
   wrap.appendChild(body);
   wrap.dataset.q = m.q;
 
-  return { name: m.n, el: wrap, body };
+  return { name: m.n, color: color, el: wrap, body };
 }
 
 function buildBubble(m) {
@@ -553,8 +604,55 @@ function buildBubble(m) {
     s.innerHTML = decorateText(m.c);
     b.appendChild(s);
   }
-  if (m.media) for (const md of m.media) b.appendChild(buildMusicCard(md));
+  if (m.media) for (const md of m.media) if (!md.pos) b.appendChild(buildMusicCard(md));
   return b;
+}
+
+function bgmBlock(m) {
+  const el = document.createElement('div');
+  el.className = 'bgm-marker' + (m.file ? ' playable' : '');
+  const icon = document.createElement('span');
+  icon.className = 'bgm-marker-icon';
+  icon.innerHTML = '<svg class="icon"><use href="#i-music"/></svg>';
+  el.appendChild(icon);
+  const label = document.createElement('span');
+  label.className = 'bgm-marker-text';
+  label.textContent = m.bgm;
+  el.appendChild(label);
+  if (m.file) {
+    const play = document.createElement('span');
+    play.className = 'music-play';
+    play.innerHTML = '<svg class="icon icon-fill"><use href="#i-play"/></svg>';
+    el.appendChild(play);
+    el.setAttribute('role', 'button');
+    el.tabIndex = 0;
+    const md = { file: m.file, title: m.bgm, desc: 'BGM' };
+    el.addEventListener('click', () => playTrack(md, el));
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playTrack(md, el); } });
+  }
+  return el;
+}
+
+function buildMediaCard(md) {
+  const wrap = document.createElement('div');
+  wrap.className = 'media-item';
+  if (md.kind === 'image') {
+    const img = document.createElement('img');
+    img.className = 'media-img';
+    img.src = md.file;
+    img.alt = '';
+    img.loading = 'lazy';
+    wrap.appendChild(img);
+  } else if (md.kind === 'video') {
+    const v = document.createElement('video');
+    v.className = 'media-video';
+    v.src = md.file;
+    v.controls = true;
+    v.preload = 'metadata';
+    v.playsInline = true;
+    wrap.appendChild(v);
+  }
+  return wrap;
 }
 
 function renderMessageInto(target, m) {
@@ -565,48 +663,93 @@ function renderMessageInto(target, m) {
   }
   if (m._kind === 'system') { target.appendChild(systemLine(m)); renderCtx.group = null; return; }
   if (m._kind === 'important') { target.appendChild(importantBlock(m)); renderCtx.group = null; return; }
-  if (!renderCtx.group || renderCtx.group.name !== m.n) {
+  if (m._kind === 'bgm') { target.appendChild(bgmBlock(m)); renderCtx.group = null; return; }
+  // 前置图片/视频
+  if (m.media) for (const md of m.media) if (md.pos === 'before') { target.appendChild(buildMediaCard(md)); renderCtx.group = null; }
+  const color = m.color || (speakerMap[m.n] || {}).color || '#8a9199';
+  if (!renderCtx.group || renderCtx.group.name !== m.n || renderCtx.group.color !== color) {
     renderCtx.group = buildGroup(m);
     target.appendChild(renderCtx.group.el);
   }
   renderCtx.group.body.appendChild(buildBubble(m));
+  // 后置图片/视频
+  if (m.media) for (const md of m.media) if (md.pos === 'after') { target.appendChild(buildMediaCard(md)); renderCtx.group = null; }
 }
 
-const CHUNK = 300;
-let io = null;
+const PAGE_SIZE = 300;
+
+function pageCount() {
+  return Math.max(1, Math.ceil(currentVisible.length / PAGE_SIZE));
+}
 
 function renderTranscript(visible) {
   currentVisible = visible;
+  const total = pageCount();
+  if (state.page > total) state.page = total;
+  if (state.page < 1) state.page = 1;
   transcriptEl.innerHTML = '';
-  renderedCount = 0;
   renderCtx = { lastDate: null, group: null };
-  if (!currentVisible.length) { renderEmpty(); return; }
-  appendChunk();
-}
-
-function appendChunk() {
-  const start = renderedCount;
-  const end = Math.min(start + CHUNK, currentVisible.length);
-  if (start >= end) { updateSentinel(); return; }
+  if (!currentVisible.length) { renderEmpty(); renderPagination(); return; }
+  const start = (state.page - 1) * PAGE_SIZE;
+  const end = Math.min(start + PAGE_SIZE, currentVisible.length);
   const frag = document.createDocumentFragment();
   for (let i = start; i < end; i++) renderMessageInto(frag, currentVisible[i]);
   transcriptEl.appendChild(frag);
-  renderedCount = end;
-  updateSentinel();
+  renderPagination();
 }
 
-function updateSentinel() {
-  if (io) { io.disconnect(); io = null; }
-  if (renderedCount < currentVisible.length) {
-    const left = currentVisible.length - renderedCount;
-    sentinelEl.innerHTML = '<button class="load-more" type="button">加载更多（剩余 ' + left + ' 条）</button>';
-    const btn = sentinelEl.firstChild;
-    btn.addEventListener('click', appendChunk);
-    io = new IntersectionObserver((entries) => { if (entries[0].isIntersecting) appendChunk(); }, { rootMargin: '800px' });
-    io.observe(btn);
-  } else {
-    sentinelEl.innerHTML = '';
-  }
+function renderPagination() {
+  pagerEl.innerHTML = '';
+  const total = pageCount();
+  if (total <= 1) return;
+  const bar = document.createElement('div');
+  bar.className = 'pager-bar';
+  const prev = document.createElement('button');
+  prev.type = 'button';
+  prev.className = 'pager-btn' + (state.page <= 1 ? ' disabled' : '');
+  prev.textContent = '‹ 上一页';
+  prev.addEventListener('click', () => goToPage(state.page - 1));
+  bar.appendChild(prev);
+  const info = document.createElement('span');
+  info.className = 'pager-info';
+  info.textContent = state.page + ' / ' + total + ' 页';
+  bar.appendChild(info);
+  const next = document.createElement('button');
+  next.type = 'button';
+  next.className = 'pager-btn' + (state.page >= total ? ' disabled' : '');
+  next.textContent = '下一页 ›';
+  next.addEventListener('click', () => goToPage(state.page + 1));
+  bar.appendChild(next);
+  const jump = document.createElement('span');
+  jump.className = 'pager-jump';
+  const jinput = document.createElement('input');
+  jinput.type = 'number';
+  jinput.min = '1';
+  jinput.max = String(total);
+  jinput.placeholder = '页';
+  jinput.setAttribute('aria-label', '跳转到页');
+  const jbtn = document.createElement('button');
+  jbtn.type = 'button';
+  jbtn.className = 'pager-btn';
+  jbtn.textContent = '跳转';
+  jbtn.addEventListener('click', () => {
+    const n = parseInt(jinput.value, 10);
+    if (n >= 1 && n <= total) goToPage(n);
+  });
+  jinput.addEventListener('keydown', (e) => { if (e.key === 'Enter') jbtn.click(); });
+  jump.appendChild(jinput);
+  jump.appendChild(jbtn);
+  bar.appendChild(jump);
+  pagerEl.appendChild(bar);
+}
+
+function goToPage(n) {
+  const total = pageCount();
+  n = Math.max(1, Math.min(total, n));
+  if (n === state.page) return;
+  state.page = n;
+  renderTranscript(currentVisible);
+  window.scrollTo({ top: 0 });
 }
 
 function renderEmpty() {
@@ -643,6 +786,7 @@ function renderFilterPop() {
   for (const m of baseMessages()) counts[m.n] = (counts[m.n] || 0) + 1;
 
   for (const s of DATA.speakers) {
+    if (!counts[s.name]) continue; // 只显示当前视图实际出现的角色
     const sp = speakerMap[s.name];
     const off = !!state.hidden[s.name];
     const row = document.createElement('div');
@@ -683,11 +827,6 @@ function renderFilterPop() {
   toggle.appendChild(sw);
   filterPopEl.appendChild(toggle);
 
-  const foot = document.createElement('div');
-  foot.className = 'pop-foot';
-  foot.textContent = '点击条目显示 / 隐藏 · KP 的【】重要信息始终显示';
-  filterPopEl.appendChild(foot);
-
   if (!filterPopEl.hidden) positionPop(filterPopEl, filterPopEl._anchor);
 }
 
@@ -708,6 +847,7 @@ function renderAll() {
   updateCatBtn();
   updateLineBtn();
   currentVisible = computeVisible();
+  state.page = 1;
   renderStageHead(currentVisible);
   renderTranscript(currentVisible);
   updateFilterBadge();
@@ -819,6 +959,7 @@ window.addEventListener('resize', () => { if (currentPop) positionPop(currentPop
 /* ---------- 初始化 ---------- */
 function init() {
   loadState();
+  document.title = activeCat().title + '-ulogs';
   applyTheme();
   buildSpeakerMap();
   preprocess();
