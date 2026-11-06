@@ -884,7 +884,19 @@ function positionPop(pop, anchor) {
   let top = r.bottom + 8;
   if (left + rect.width > window.innerWidth - 8) left = window.innerWidth - rect.width - 8;
   if (left < 8) left = 8;
-  if (top + rect.height > window.innerHeight - 24) top = r.top - rect.height - 8;
+  if (pop === filterPopEl) {
+    // 筛选面板强制向下显示，超出视口底部则限高滚动（不再向上翻转）
+    pop.style.maxHeight = '';
+    pop.style.overflowY = '';
+    const maxH = Math.max(120, window.innerHeight - top - 16);
+    const h = pop.getBoundingClientRect().height;
+    if (h > maxH) {
+      pop.style.maxHeight = maxH + 'px';
+      pop.style.overflowY = 'auto';
+    }
+  } else if (top + rect.height > window.innerHeight - 24) {
+    top = r.top - rect.height - 8;
+  }
   pop.style.left = left + 'px';
   pop.style.top = top + 'px';
 }
